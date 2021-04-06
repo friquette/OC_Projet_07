@@ -1,12 +1,74 @@
-COSTS = [20, 30, 50, 70, 60, 80, 22, 26, 48, 34, 42, 110, 38, 14, 18, 8, 4, 10, 24, 114]
-BENEFITS = [.05, .1, .15, .2, .17, .25, .07, .11, .13, .27, .17, .09, .23, .01, .03, .08, .12, .14, .21, .18]
+import csv
 
-shares = {}
 
-for i in range(len(COSTS)):
-    shares[f"Action-{i + 1}"] = {"cost": COSTS[i], "benefit": BENEFITS[i]}
+def combinations_with_replacement(read_file: str, write_file: str):
+    selected_shares = []
+    wallet = 0
+    total_profit = 0
 
-sorted_shares = sorted(shares.items(), key=lambda share: (share[1]['benefit'], share[1]['cost']), reverse=True)
+    sorted_shares = create_shares_from_file(read_file)
 
-print(sorted_shares[0][1]['cost'])
+    for share in sorted_shares:
+        while True:
+            wallet += share[1]['price']
+            if wallet <= 500:
+                total_profit += ((share[1]['price'] * share[1]['profit']) / 100)
+                selected_shares.append(share[0])
+                continue
+            else:
+                wallet -= share[1]['price']
+                break
 
+    write_report(selected_shares, wallet, total_profit, write_file)
+
+
+def combinations_without_replacement(read_file: str, write_file: str):
+    selected_shares = []
+    wallet = 0
+    total_profit = 0
+
+    sorted_shares = create_shares_from_file(read_file)
+
+    for share in sorted_shares:
+        wallet += share[1]['price']
+        if wallet <= 500:
+            total_profit += ((share[1]['price'] * share[1]['profit']) / 100)
+            selected_shares.append(share[0])
+        else:
+            wallet -= share[1]['price']
+
+    write_report(selected_shares, wallet, total_profit, write_file)
+
+
+def create_shares_from_file(read_file: str) -> list:
+    shares = {}
+
+    with open(read_file, mode='r') as file:
+        csv_reader = csv.DictReader(file)
+        line_count = 0
+
+        for row in csv_reader:
+            if line_count == 0:
+                line_count += 1
+
+            if float(row['price']) > 0:
+                shares[row['name']] = {"price": float(row['price']), "profit": float(row['profit'])}
+
+    return sorted(shares.items(), key=lambda s: (s[1]['profit'], s[1]['price']), reverse=True)
+
+
+def write_report(shares: list, wallet: float, profit: float, write_file: str):
+    with open(write_file, mode="w") as file:
+        file.write("Shares to buy:\n")
+        for share in shares:
+            file.write(f"\t{share}\n")
+        file.write(f"Total cost: {round(wallet, 2)}\n")
+        file.write(f"Total return: {round(profit, 2)}")
+
+
+if __name__ == "__main__":
+    combinations_with_replacement('csv/dataset1_Python+P7.csv', 'reports/dataset1_with_replacement.txt')
+    combinations_with_replacement('csv/dataset2_Python+P7.csv', 'reports/dataset2_with_replacement.txt')
+
+    combinations_without_replacement('csv/dataset1_Python+P7.csv', 'reports/dataset1_without_replacement.txt')
+    combinations_without_replacement('csv/dataset2_Python+P7.csv', 'reports/dataset2_without_replacement.txt')
