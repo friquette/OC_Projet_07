@@ -1,6 +1,7 @@
 import itertools
 from time import time
 from datetime import timedelta
+import csv
 
 
 def timer(function):
@@ -15,14 +16,23 @@ def timer(function):
     return new_function
 
 
-COSTS = [20, 30, 50, 70, 60, 80, 22, 26, 48, 34, 42, 110, 38, 14, 18, 8, 4, 10, 24, 114]
-BENEFITS = [.05, .1, .15, .2, .17, .25, .07, .11, .13, .27, .17, .09, .23, .01, .03, .08, .12, .14, .21, .18]
+def create_shares_from_file(read_file: str) -> list:
+    shares = []
 
-shares = []
+    with open(read_file, mode='r') as file:
+        csv_reader = csv.DictReader(file)
+        line_count = 0
 
-for i in range(20):
-    share = {i+1: {COSTS[i]: BENEFITS[i]}}
-    shares.append(share)
+        for row in csv_reader:
+            shares_dict = {}
+            if line_count == 0:
+                line_count += 1
+
+            if float(row['price']) > 0:
+                shares_dict[row['name']] = {float(row['price']): float(row['profit'])}
+                shares.append(shares_dict)
+
+    return shares
 
 
 def accept_combination(combination: tuple) -> bool:
@@ -34,41 +44,44 @@ def accept_combination(combination: tuple) -> bool:
 
 
 def compare_combinations(first_cmb: float, second_cmb: float) -> float:
-    if second_cmb > first_cmb:
-        return second_cmb
-    else:
-        return first_cmb
-
-    # return second_cmb if second_cmb > first_cmb else first_cmb
+    return second_cmb if second_cmb > first_cmb else first_cmb
 
 
 @timer
-def main(force: int):
+def main(force: int, read_file: str):
     best_benefit = 0
     best_combination = None
+
+    shares = create_shares_from_file(read_file)
 
     for cmb in itertools.combinations_with_replacement(shares, force):
         combinations = []
         total_benefit = []
 
         for share_dict in cmb:
-            for key in share_dict.keys():
-                combinations.append(COSTS[key-1])
+            for value in share_dict.values():
+                for price in value.keys():
+                    combinations.append(price)
 
         is_accepted = accept_combination(tuple(combinations))
         if is_accepted:
             for item in cmb:
-                for k in item.keys():
-                    absolute_benefit = round((COSTS[k-1] * BENEFITS[k-1]), 2)
-                    total_benefit.append(absolute_benefit)
+                for v in item.values():
+                    for price, benefit in v.items():
+                        absolute_benefit = round((price * benefit)/100, 2)
+                        total_benefit.append(absolute_benefit)
             comparison = compare_combinations(best_benefit, sum(total_benefit))
             if best_benefit < comparison:
                 best_benefit = comparison
                 best_combination = cmb
-    return best_combination, round(best_benefit, 2)
+
+    return best_combination, f"{round(best_benefit, 2)}€"
 
 
 if __name__ == "__main__":
-    for i in range(1, 13):
-        final_result = main(i)
-        print(f"Force {i}: meilleur combinaison = {final_result} \n")
+    for i in range(1, 10):
+        with open("reports/bruteforce_report.txt", mode='r+') as file:
+            if f"Force {i}" not in str(file.read()):
+                print(f"Force {i} calculating...")
+                final_result = main(i, 'csv/bruteforce.csv')
+                file.write(f"Force {i}: meilleur combinaison = {final_result} \n")
